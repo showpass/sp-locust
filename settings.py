@@ -8,3 +8,7 @@ CUSTOMER_EMAIL = 'dev@showpass.com'
 CUSTOMER_PASSWORD = 'password'
 EVENT_SLUGS = ['event-a', 'event-b', 'event-c']
 EVENT_SLUG = 'event-slug-a'
+
+REQUEST_OPTS = dict(
+    verify=False,  # Ignore SSL errors (helps for testing on live server)
+)
