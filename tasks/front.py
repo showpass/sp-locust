@@ -252,8 +252,8 @@ EVENT_ID = settings.TEST_EVENT
 TICKET_TYPE_ID = settings.TEST_TICKET_TYPE
 
 class PerformanceBasket(BaseTaskSet):
-    def on_start(self):
-        self.event = self._events()['results'][0]
+    # def on_start(self):
+    #     self.event = self._events()['results'][0]
 
     def _events(self):
         resp = self.get(f'/api/public/events/?is_featured=true&page=1&page_size=12&id__in={EVENT_ID}')
