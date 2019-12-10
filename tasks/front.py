@@ -263,6 +263,10 @@ class PerformanceBasket(BaseTaskSet):
             return {}
 
     @task(1)
+    def event_list(self):
+        self.get('/api/public/events/?is_featured=true&page=1&page_size=12')
+
+    @task(5)
     def add_to_basket(self):
         data = {
             'item_groups': [
