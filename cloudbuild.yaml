@@ -1,11 +1,4 @@
 # Indicates how to build images when new commit is pushed to develop
 steps:
-- name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', 'gcr.io/$PROJECT_ID/sp-locust', '.']
-  id: 'sp-locust'
-  waitFor: ['-']
-- name: 'gcr.io/cloud-builders/docker'
-  args: ['tag', 'gcr.io/$PROJECT_ID/sp-locust', 'gcr.io/$PROJECT_ID/sp-locust:$REVISION_ID']
-  waitFor: ['app-web']
-images:
-  - 'gcr.io/$PROJECT_ID/sp-locust'
+- name: 'gcr.io/kaniko-project/executor:latest'
+  args: ['--destination=gcr.io/$PROJECT_ID/sp-locust', '--cache=true']
