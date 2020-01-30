@@ -267,7 +267,7 @@ class PerformanceBasket(BaseTaskSet):
     #     self.get('/api/public/events/?is_featured=true&page=1&page_size=12')
 
     @task(5)
-    def add_to_basket(self):
+    def add_to_basket_2(self):
         data = {
             'item_groups': [
                 {
@@ -283,6 +283,39 @@ class PerformanceBasket(BaseTaskSet):
 
         self.post('/api/user/tickets/baskets/', json=data)
 
+    @task(5)
+    def add_to_basket_1(self):
+        data = {
+            'item_groups': [
+                {
+                    'item_type': 'ticket',
+                    'quantity': 1,
+                    'scan_codes': [],
+                    'survey_responses': [],
+                    'tt_seat_permissions': [],
+                    'type': TICKET_TYPE_ID
+                }
+            ]
+        }
+
+        self.post('/api/user/tickets/baskets/', json=data)
+
+    @task(5)
+    def add_to_basket_3(self):
+        data = {
+            'item_groups': [
+                {
+                    'item_type': 'ticket',
+                    'quantity': 3,
+                    'scan_codes': [],
+                    'survey_responses': [],
+                    'tt_seat_permissions': [],
+                    'type': TICKET_TYPE_ID
+                }
+            ]
+        }
+
+        self.post('/api/user/tickets/baskets/', json=data)
 
 class FrontPage(BaseTaskSet):
     @task(1)
