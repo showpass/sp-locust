@@ -4,6 +4,7 @@ PERF_ENABLED = True
 FRONT_PAGE_ENABLED = False
 TEST_EVENT = 2146
 TEST_TICKET_TYPE = 4483
+TICKET_TYPE_ID_CHILD = 4484
 CUSTOMER_EMAIL = 'dev@showpass.com'
 CUSTOMER_PASSWORD = 'password'
 EVENT_SLUGS = ['event-a', 'event-b', 'event-c']

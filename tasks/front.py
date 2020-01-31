@@ -250,6 +250,7 @@ class FrontendViewerTaskSet(BaseTaskSet):
 
 EVENT_ID = settings.TEST_EVENT
 TICKET_TYPE_ID = settings.TEST_TICKET_TYPE
+TICKET_TYPE_ID_CHILD = settings.TICKET_TYPE_ID_CHILD
 
 class PerformanceBasket(BaseTaskSet):
     # def on_start(self):
@@ -294,6 +295,23 @@ class PerformanceBasket(BaseTaskSet):
                     'survey_responses': [],
                     'tt_seat_permissions': [],
                     'type': TICKET_TYPE_ID
+                }
+            ]
+        }
+
+        self.post('/api/user/tickets/baskets/', json=data)
+
+    @task(5)
+    def add_to_basket_child(self):
+        data = {
+            'item_groups': [
+                {
+                    'item_type': 'ticket',
+                    'quantity': 1,
+                    'scan_codes': [],
+                    'survey_responses': [],
+                    'tt_seat_permissions': [],
+                    'type': TICKET_TYPE_ID_CHILD
                 }
             ]
         }
