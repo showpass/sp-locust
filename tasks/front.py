@@ -300,23 +300,6 @@ class PerformanceBasket(BaseTaskSet):
 
         self.post('/api/user/tickets/baskets/', json=data)
 
-    @task(5)
-    def add_to_basket_3(self):
-        data = {
-            'item_groups': [
-                {
-                    'item_type': 'ticket',
-                    'quantity': 3,
-                    'scan_codes': [],
-                    'survey_responses': [],
-                    'tt_seat_permissions': [],
-                    'type': TICKET_TYPE_ID
-                }
-            ]
-        }
-
-        self.post('/api/user/tickets/baskets/', json=data)
-
 class FrontPage(BaseTaskSet):
     @task(1)
     def api_front_page(self):
