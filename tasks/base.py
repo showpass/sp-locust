@@ -1,7 +1,7 @@
 from locust import TaskSet
 
 import settings
-from tasks.generators import user_based_venue, user_based_basket, user_based_cc_basket_purchase, cc_data, auth_user, \
+from tasks.generators import user_based_venue, user_based_basket, user_based_cc_basket_purchase, auth_user, \
     venue_based_event
 from random import choice
 
@@ -40,7 +40,7 @@ class BaseTaskSet(TaskSet):
         return self.client.put(*args, **kwargs)
 
     def set_crsf(self):
-        r = self.get('')
+        r = self.get('/api/return-csrf-cookie/')
         try:
             self.csrf_token = r.cookies['csrftoken']
         except KeyError:
@@ -69,9 +69,8 @@ class BaseTaskSet(TaskSet):
 class BaseUserTaskSet(BaseTaskSet):
     def __init__(self, *args, **kwargs):
         self._basket_data = None
-        self._has_tix = False
         self._current_venue = None
-        self._user = None
+        self.showpass_user = None
         super(BaseUserTaskSet, self).__init__(*args, **kwargs)
 
     def create_user(self):
@@ -81,8 +80,8 @@ class BaseUserTaskSet(BaseTaskSet):
         new_user_resp = self.post('/api/auth/registration/', json=auth_user())
         if new_user_resp.ok:
 
-            self._user = new_user_resp.json()
-            return self._user
+            self.showpass_user = new_user_resp.json()
+            return self.showpass_user
 
         return None
 
@@ -108,11 +107,10 @@ class BaseUserTaskSet(BaseTaskSet):
                         name='/api/user/tickets/baskets/[BASKET ID]/')
         if resp.ok:
             self._basket_data = resp.json()
-            self._has_tix = True
         return resp
 
     def buy_cart(self):
-        if not self._has_tix:
+        if not self._basket_data:
             self.add_tix()
 
         if self._basket_data['total_price'] == '0.00':
@@ -122,14 +120,12 @@ class BaseUserTaskSet(BaseTaskSet):
                 'payment_type': 5
             }
         else:
-            strip_resp = self.pay_stripe().json()
-            basket_json_data = user_based_cc_basket_purchase(self._basket_data['id'], strip_resp['id'])
+            basket_json_data = user_based_cc_basket_purchase(self._basket_data['id'])
 
         resp = self.post('/api/user/tickets/baskets/%s/purchase/' % self._basket_data['id'],
                          json=basket_json_data, name='/api/user/tickets/baskets/[BASKET ID]/purchase/')
 
         if resp.ok:
-            self._has_tix = False
             self._basket_data = None
 
         return resp.json()
@@ -150,15 +146,12 @@ class BaseUserTaskSet(BaseTaskSet):
         /api/user/venues/
         """
         assert self.csrf_token is not None
-        email = None if self._user is None else self._user['email']
+        email = None if self.showpass_user is None else self.showpass_user['email']
         resp = self.post('/api/user/venues/', json=user_based_venue(email=email))
         if resp.ok:
             self._current_venue = resp.json()
             return self._current_venue
         return None
-
-    def pay_stripe(self):
-        return self.post('https://api.stripe.com/v1/tokens', data=cc_data(), name='STRIPE')
 
 
 class BaseVenueUserTaskSet(BaseUserTaskSet):
