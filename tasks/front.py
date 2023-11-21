@@ -1,3 +1,4 @@
+import time
 from random import choice, random
 
 from locust import task
@@ -322,3 +323,163 @@ class FrontPage(BaseTaskSet):
     @task(1)
     def api_front_page(self):
         self.get('/api/public/events/?is_featured=true&page=1&page_size=12')
+
+
+class AttractionUserTaskSet(BaseUserTaskSet):
+    """
+    Will run an attraction event load test for the given attraction event id in the settings.
+    AttractionUserTaskSet will either purchase a timeslot for the attraction event,
+    simply call the apis to view the events, or add some to cart and not checkout.
+
+    The attraction event id provided must be set up so that all the events in the attraction config are recurring events
+    with multiple timeslots within 24 hours of each-other.
+    (So that they appear grouped in the calendar under a single day.)
+    """
+    event = settings.ATTRACTION_EVENT_ID
+
+    def view_and_get_child_timeslot(self):
+        resp = self.get(f'/api/public/events/{self.event}')
+        attraction_config = resp.json()['attraction_event_config']
+        venue_slug = resp.json()['venue']['slug']
+        venue_id = resp.json()['venue']['id']
+        event_ids = []
+        for item in attraction_config:
+            if item['type'] == 1:  # 1 means events.
+                event_ids = item['ids']
+
+        time.sleep(2)
+
+        # Now we call normal calendar endpoint.
+        events_string = ','.join([str(n) for n in event_ids])
+        self.get(
+            f'/api/public/venues/{venue_slug}/calendar/?venue__in={venue_id}&only_parents=true&event__in={events_string}')
+
+        time.sleep(2)
+
+        # Now we call for a random event in the calendar.
+        random_event = choice(event_ids)
+        day_event = self.get(f'/api/public/events/{random_event}/calendar')
+        child_events = day_event.json()['child_events']
+
+        if child_events:
+            time.sleep(2)
+
+            child_event = choice(child_events)
+            child_slug = child_event['slug']
+            resp = self.get(f'/api/public/events/{child_slug}/calendar')
+            return resp.json()
+        else:
+            return day_event.json()
+
+    @task(3)
+    def view_event(self):
+        """
+        Task where a user goes and queries for the attraction event, opens the attraction calendar.
+        Selects a day, then selects a timeslot. But does not do anything else.
+        """
+        self.view_and_get_child_timeslot()
+
+    @task(2)
+    def create_basket(self):
+        """
+        Task where a user goes and queries for the attraction event, opens the attraction calendar.
+        Selects a day, then selects a timeslot. Then adds some tickets to their basket before promptly leaving the site.
+        """
+        child_data = self.view_and_get_child_timeslot()
+        # Now that we have the child timeslot we will select a random ticket type and create a basket.
+        time.sleep(2)
+
+        tts = child_data['ticket_types']
+        random_tt = choice(tts)
+
+        self.post(
+            '/api/user/tickets/baskets/',
+            json=user_based_basket(tix_type=random_tt['id'], tix_quantity=2),
+        )
+
+    @task(1)
+    def purchase_event(self):
+        child_data = self.view_and_get_child_timeslot()
+        # Now that we have the child timeslot we will select a random ticket type and create a basket.
+        time.sleep(2)
+
+        tts = child_data['ticket_types']
+        random_tt = choice(tts)
+
+        basket_data = self.post(
+            '/api/user/tickets/baskets/',
+            json=user_based_basket(tix_type=random_tt['id'], tix_quantity=2),
+        )
+
+        time.sleep(2)
+
+        # Now purchase the tickets.
+        self._basket_data = basket_data.json()
+        self.buy_cart()
+
+    def on_start(self):
+        self.set_crsf()
+        new_user = self.create_user()
+        self.set_crsf()
+        self.login(new_user['user']['email'], 'password')
+
+
+class SingleEventLoadTest(BaseUserTaskSet):
+    """
+    Will run a load test for a single GA event. Good way to test high concurrency purchase of the same ticket types.
+    """
+    event = settings.SINGLE_TEST_EVENT
+
+    def view_event_and_get_tt(self):
+        resp = self.get(f'/api/public/events/{self.event}')
+
+        time.sleep(2)
+
+        event = resp.json()
+
+        # Now we call for a random event in the calendar.
+        random_tt = choice(event['ticket_types'])
+        return random_tt
+
+    @task(1)
+    def view_event(self):
+        """
+        Task where a user goes and queries for the attraction event, opens the attraction calendar.
+        Selects a day, then selects a timeslot. But does not do anything else.
+        """
+        self.view_event_and_get_tt()
+
+    @task(1)
+    def create_basket(self):
+        """
+        Task where a user goes and queries for the attraction event, opens the attraction calendar.
+        Selects a day, then selects a timeslot. Then adds some tickets to their basket before promptly leaving the site.
+        """
+        tt = self.view_event_and_get_tt()
+        # Now that we have the child timeslot we will select a random ticket type and create a basket.
+        time.sleep(2)
+
+        self.post(
+            '/api/user/tickets/baskets/',
+            json=user_based_basket(tix_type=tt['id'], tix_quantity=2),
+        )
+
+    @task(1)
+    def purchase_event(self):
+        tt = self.view_event_and_get_tt()
+        time.sleep(2)
+
+        basket_data = self.post(
+            '/api/user/tickets/baskets/',
+            json=user_based_basket(tix_type=tt['id'], tix_quantity=2),
+        )
+        time.sleep(2)
+        # Now purchase the tickets.
+        self._basket_data = basket_data.json()
+        self.buy_cart()
+
+    def on_start(self):
+        self.set_crsf()
+        new_user = self.create_user()
+        self.set_crsf()
+        self.login(new_user['user']['email'], 'password')

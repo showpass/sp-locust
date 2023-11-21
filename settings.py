@@ -1,6 +1,7 @@
 # Settings file for the locustfile.py
 
-PERF_ENABLED = True
+# Deprecated constants
+PERF_ENABLED = False
 FRONT_PAGE_ENABLED = False
 TEST_EVENT = 212
 TEST_TICKET_TYPE = 738  #4483
@@ -10,6 +11,16 @@ CUSTOMER_PASSWORD = 'password'
 EVENT_SLUGS = ['event-a', 'event-b', 'event-c']
 EVENT_SLUG = 'event-slug-a'
 
+# Non-deprecated constants.
 REQUEST_OPTS = dict(
     verify=False,  # Ignore SSL errors (helps for testing on live server)
 )
+
+
+# Settings for enabling attraction event load test.
+ATTRACTION_EVENT_TEST_ENABLED = False
+ATTRACTION_EVENT_ID = 62559
+
+# Settings for enabling single GA event load test.
+SINGLE_EVENT_LOAD_TEST_ENABLED = False
+SINGLE_TEST_EVENT = 62991

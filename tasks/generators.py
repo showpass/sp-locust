@@ -78,7 +78,6 @@ def location_data(venue):
         'name': ' '.join(fake.words()),
         'position': '51.0486151,-114.0708459',
         'street_name': fake.street_address(),
-        'city': fake.city(),
         'province': fake.state(),
         'postal_code': fake.postalcode(),
         'venue': venue,
@@ -119,11 +118,12 @@ def user_based_basket(tix_type=1, tix_quantity=1):
                 'quantity': tix_quantity,
             }
         ],
+        'purchase_source_platform': 'psp_web',
         'sold_by_venue': None,
     }
 
 
-def user_based_cc_basket_purchase(basket_id, token):
+def user_based_cc_basket_purchase(basket_id):
     return {
         'payment_type': 2,
         'basket': basket_id,
@@ -136,17 +136,12 @@ def user_based_cc_basket_purchase(basket_id, token):
             'postal': fake.postalcode()
         },
         'credit_card': {
-            'charge_type': 'ct_token',
-            'token_id': token
-        }
+            'name': 'Test Name',
+            'number': '4242424242424242',
+            'ccv': '123',
+            'exp_year': '2027',
+            'exp_month': '2',
+        },
+        'purchase_source_platform': 'psp_web'
     }
 
-
-def cc_data():
-    return {
-        'key': 'pk_test_W1c6inFqI5UgB0ltTpwgLmKV',
-        'card[number]': 4242424242424242,
-        'card[exp_month]': 4,
-        'card[exp_year]': 2020,
-        'card[cvc]': 4242
-    }
