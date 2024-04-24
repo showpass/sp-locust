@@ -5,7 +5,7 @@ from locust import task
 
 import settings
 from tasks.base import BaseUserTaskSet, BaseTaskSet
-from tasks.generators import now_with_tz, user_based_basket
+from tasks.generators import now_with_tz, user_based_basket, user_based_membership_basket
 
 
 class UserViewTaskSet(BaseUserTaskSet):
@@ -441,7 +441,7 @@ class SingleEventLoadTest(BaseUserTaskSet):
         random_tt = choice(event['ticket_types'])
         return random_tt
 
-    @task(1)
+    @task(5)
     def view_event(self):
         """
         Task where a user goes and queries for the attraction event, opens the attraction calendar.
@@ -449,7 +449,7 @@ class SingleEventLoadTest(BaseUserTaskSet):
         """
         self.view_event_and_get_tt()
 
-    @task(1)
+    @task(5)
     def create_basket(self):
         """
         Task where a user goes and queries for the attraction event, opens the attraction calendar.
@@ -465,6 +465,29 @@ class SingleEventLoadTest(BaseUserTaskSet):
         )
 
     @task(1)
+    def create_basket_lower_quantity_then_purchase(self):
+        tt = self.view_event_and_get_tt()
+        time.sleep(2)
+
+        basket_data = self.post(
+            '/api/user/tickets/baskets/',
+            json=user_based_basket(tix_type=tt['id'], tix_quantity=2),
+        )
+        time.sleep(2)
+        # Lower the quantity
+        basket_data = basket_data.json()
+        basket_data['item_groups'][0]['quantity'] = 1
+        basket_data = self.put(
+            '/api/user/tickets/baskets/%s/' % basket_data['id'],
+            json=basket_data, name='/api/user/tickets/baskets/[BASKET ID]/event'
+        )
+        time.sleep(2)
+
+        # Now purchase the tickets.
+        self._basket_data = basket_data.json()
+        self.buy_cart()
+
+    @task(1)
     def purchase_event(self):
         tt = self.view_event_and_get_tt()
         time.sleep(2)
@@ -472,6 +495,215 @@ class SingleEventLoadTest(BaseUserTaskSet):
         basket_data = self.post(
             '/api/user/tickets/baskets/',
             json=user_based_basket(tix_type=tt['id'], tix_quantity=2),
+        )
+        time.sleep(2)
+        # Now purchase the tickets.
+        self._basket_data = basket_data.json()
+        self.buy_cart()
+
+    def on_start(self):
+        self.set_crsf()
+        new_user = self.create_user()
+        self.set_crsf()
+        self.login(new_user['user']['email'], 'password')
+
+
+class GALocationLoadTest(BaseUserTaskSet):
+    """
+    Will run a load test for a single GA Location event.
+    Good way to test high concurrency purchase of the same GA location.
+    """
+    event = settings.LOCATION_TEST_EVENT
+    location_permission = settings.LOCATION_TEST_PERMISSION
+
+    def view_event_and_get_tt(self):
+        resp = self.get(f'/api/public/events/{self.event}')
+
+        time.sleep(2)
+
+        event = resp.json()
+
+        # Now we call for a random tt
+        random_tt = choice(event['ticket_types'])
+
+        # Call the seat permissions and location permissions fetch api
+        self.get(f'/api/public/events/ticket-types/location-permissions/v2/?allPermissions=false&event={self.event}')
+        self.get(f'/api/public/events/ticket-types/seat-permissions/v2/?allPermissions=false&event={self.event}')
+        return random_tt
+
+    @task(5)
+    def create_basket(self):
+        tt = self.view_event_and_get_tt()
+        # Now that we have the child timeslot we will select a random ticket type and create a basket.
+        time.sleep(2)
+
+        self.post(
+            '/api/user/tickets/baskets/',
+            json=user_based_basket(tix_type=tt['id'], tix_quantity=2,
+                                   tt_location_permissions=[self.location_permission]),
+        )
+
+    @task(5)
+    def create_basket_lower_quantity(self):
+        tt = self.view_event_and_get_tt()
+        time.sleep(2)
+
+        basket_data = self.post(
+            '/api/user/tickets/baskets/',
+            json=user_based_basket(tix_type=tt['id'], tix_quantity=2,
+                                   tt_location_permissions=[self.location_permission]),
+        )
+        time.sleep(2)
+        # Lower the quantity
+        basket_data = basket_data.json()
+        basket_data['item_groups'][0]['quantity'] = 1
+        self.put(
+            '/api/user/tickets/baskets/%s/' % basket_data['id'],
+            json=basket_data, name='/api/user/tickets/baskets/[BASKET ID]/event'
+        )
+
+    @task(1)
+    def create_basket_lower_quantity_then_purchase(self):
+        tt = self.view_event_and_get_tt()
+        time.sleep(2)
+
+        basket_data = self.post(
+            '/api/user/tickets/baskets/',
+            json=user_based_basket(tix_type=tt['id'], tix_quantity=2,
+                                   tt_location_permissions=[self.location_permission]),
+        )
+        time.sleep(2)
+        # Lower the quantity
+        basket_data = basket_data.json()
+        basket_data['item_groups'][0]['quantity'] = 1
+        self.put(
+            '/api/user/tickets/baskets/%s/' % basket_data['id'],
+            json=basket_data, name='/api/user/tickets/baskets/[BASKET ID]/event'
+        )
+        time.sleep(2)
+
+        # Now purchase the tickets.
+        self._basket_data = basket_data.json()
+        self.buy_cart()
+
+    @task(1)
+    def purchase_event_location(self):
+        tt = self.view_event_and_get_tt()
+        time.sleep(2)
+
+        basket_data = self.post(
+            '/api/user/tickets/baskets/',
+            json=user_based_basket(tix_type=tt['id'], tix_quantity=2,
+                                   tt_location_permissions=[self.location_permission]),
+        )
+        time.sleep(2)
+        # Now purchase the tickets.
+        self._basket_data = basket_data.json()
+        self.buy_cart()
+
+    def on_start(self):
+        self.set_crsf()
+        new_user = self.create_user()
+        self.set_crsf()
+        self.login(new_user['user']['email'], 'password')
+
+
+class MembershipGALocationLoadTest(BaseUserTaskSet):
+    """
+    Will run a load test for a single GA Location seasonal membership.
+    Good way to test high concurrency purchase of the same GA location for a seasonal membership.
+
+    CAN BE USED IN CONJUNCTION WITH GALocationLoadTest to simulate on sale of membership and season events at the same
+    time for a GA location. and inventory limits can be seen to be verifiably enforced.
+    """
+    membership = settings.LOCATION_TEST_MEMBERSHIP
+    benefit = settings.LOCATION_MEMBERSHIP_BENEFIT
+    location_permission = settings.MEMBERSHIP_LOCATION_TEST_PERMISSION
+
+    def view_membership_and_get_level(self):
+        resp = self.get(f'/api/public/memberships/membership-groups/{self.membership}')
+
+        time.sleep(2)
+
+        membership = resp.json()
+
+        # Now we call for a random level
+        level = choice(membership['membership_levels'])
+
+        # Call the seat permissions and location permissions fetch api
+        self.get(
+            f'/api/public/events/ticket-types/location-permissions/v2/?allPermissions=false&membership_benefit={self.benefit}')
+        self.get(f'/api/public/events/ticket-types/seat-permissions/v2/?allPermissions=false&membership_benefit={self.benefit}')
+        return level
+
+    @task(5)
+    def view_membership(self):
+        self.view_membership_and_get_level()
+
+    @task(5)
+    def create_basket(self):
+        level = self.view_membership_and_get_level()
+        # Now that we have the child timeslot we will select a random ticket type and create a basket.
+        time.sleep(2)
+
+        self.post(
+            '/api/user/tickets/baskets/',
+            json=user_based_membership_basket(level=level['id'], quantity=2,
+                                              tt_location_permissions=[self.location_permission]),
+        )
+
+    @task(5)
+    def create_basket_lower_quantity(self):
+        level = self.view_membership_and_get_level()
+        time.sleep(2)
+
+        basket_data = self.post(
+            '/api/user/tickets/baskets/',
+            json=user_based_membership_basket(level=level['id'], quantity=2,
+                                              tt_location_permissions=[self.location_permission]),
+        )
+        time.sleep(2)
+        # Lower the quantity
+        basket_data = basket_data.json()
+        basket_data['item_groups'][0]['quantity'] = 1
+        self.put(
+            '/api/user/tickets/baskets/%s/' % basket_data['id'],
+            json=basket_data, name='/api/user/tickets/baskets/[BASKET ID]/membership'
+        )
+
+    @task(1)
+    def create_basket_lower_quantity_then_purchase(self):
+        level = self.view_membership_and_get_level()
+        time.sleep(2)
+
+        basket_data = self.post(
+            '/api/user/tickets/baskets/',
+            json=user_based_membership_basket(level=level['id'], quantity=2,
+                                              tt_location_permissions=[self.location_permission]),
+        )
+        time.sleep(2)
+        # Lower the quantity
+        basket_data = basket_data.json()
+        basket_data['item_groups'][0]['quantity'] = 1
+        basket_data = self.put(
+            '/api/user/tickets/baskets/%s/' % basket_data['id'],
+            json=basket_data, name='/api/user/tickets/baskets/[BASKET ID]/membership'
+        )
+        time.sleep(2)
+
+        # Now purchase the tickets.
+        self._basket_data = basket_data.json()
+        self.buy_cart()
+
+    @task(1)
+    def purchase_membership(self):
+        level = self.view_membership_and_get_level()
+        time.sleep(2)
+
+        basket_data = self.post(
+            '/api/user/tickets/baskets/',
+            json=user_based_membership_basket(level=level['id'], quantity=2,
+                                              tt_location_permissions=[self.location_permission]),
         )
         time.sleep(2)
         # Now purchase the tickets.

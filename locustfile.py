@@ -1,7 +1,8 @@
 from locust import HttpUser, between
 
 import settings
-from tasks.front import PerformanceBasket, FrontPage, AttractionUserTaskSet, SingleEventLoadTest
+from tasks.front import PerformanceBasket, FrontPage, AttractionUserTaskSet, SingleEventLoadTest, GALocationLoadTest, \
+    MembershipGALocationLoadTest
 
 if settings.PERF_ENABLED:
     """
@@ -39,6 +40,28 @@ if settings.SINGLE_EVENT_LOAD_TEST_ENABLED:
     If true we will run a single normal event GA load test. Includes viewing/basket-creation/purchasing.
     """
 
-    class AttractionEventUser(HttpUser):
+    class StandardEventUser(HttpUser):
         wait_time = between(5, 10)
         tasks = {SingleEventLoadTest: 1}
+
+if settings.SINGLE_EVENT_GA_LOCATION_LOAD_TEST_ENABLED:
+    """
+    If true we will run a single event GA Location load test. Includes viewing/basket-creation/purchasing.
+    """
+
+    class GALocationUser(HttpUser):
+        wait_time = between(5, 10)
+        tasks = {GALocationLoadTest: 1}
+
+
+if settings.SINGLE_MEMBERSHIP_GA_LOCATION_LOAD_TEST_ENABLED:
+    """
+    If true we will run a single membership GA Location load test. Includes viewing/basket-creation/purchasing.
+    
+    Can be used in coordination with SINGLE_EVENT_GA_LOCATION_LOAD_TEST_ENABLED to test membership/season event 
+    location syncing, inventory, and performance.
+    """
+
+    class GAMembershipLocationUser(HttpUser):
+        wait_time = between(5, 10)
+        tasks = {MembershipGALocationLoadTest: 1}
