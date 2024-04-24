@@ -107,15 +107,36 @@ def user_based_venue(email=None):
     }
 
 
-def user_based_basket(tix_type=1, tix_quantity=1):
+def user_based_basket(tix_type=1, tix_quantity=1, tt_location_permissions=None):
+    if tt_location_permissions is None:
+        tt_location_permissions = []
     return {
         'item_groups': [
             {
                 'item_type': 'ticket',
                 'type': tix_type,
                 'tt_seat_permissions': [],
+                'tt_location_permissions': tt_location_permissions,
                 'scan_codes': [],
                 'quantity': tix_quantity,
+            }
+        ],
+        'purchase_source_platform': 'psp_web',
+        'sold_by_venue': None,
+    }
+
+def user_based_membership_basket(level=1, quantity=1, tt_location_permissions=None):
+    if tt_location_permissions is None:
+        tt_location_permissions = []
+    return {
+        'item_groups': [
+            {
+                'item_type': 'membership',
+                'membership_level': level,
+                'tt_seat_permissions': [],
+                'tt_location_permissions': tt_location_permissions,
+                'scan_codes': [],
+                'quantity': quantity,
             }
         ],
         'purchase_source_platform': 'psp_web',
